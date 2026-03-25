@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ClassPro · 课堂互动</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.3.0/mqtt.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;background:#f0f4f8;min-height:100vh;color:#333}
+
+/* Header */
+.header{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;padding:16px 20px;text-align:center;position:sticky;top:0;z-index:10;box-shadow:0 4px 15px rgba(99,102,241,.3)}
+.header h1{font-size:18px;font-weight:700;margin:0}
+.header .sub{font-size:12px;opacity:.8;margin-top:4px}
+.status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.status-dot.on{background:#4ade80}
+.status-dot.off{background:#f87171}
+
+/* Name selection */
+.name-section{padding:20px;background:#fff;border-bottom:1px solid #e5e7eb}
+.name-section label{font-size:14px;font-weight:600;color:#374151;display:block;margin-bottom:8px}
+.name-select{width:100%;padding:12px 16px;font-size:16px;border:2px solid #e5e7eb;border-radius:12px;background:#f9fafb;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-size:20px}
+.name-select:focus{outline:none;border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.15)}
+.name-confirmed{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#f0fdf4;border:2px solid #86efac;border-radius:12px}
+.name-confirmed .name{font-size:16px;font-weight:700;color:#166534}
+.name-confirmed button{background:none;border:none;color:#6b7280;font-size:13px;cursor:pointer;text-decoration:underline}
+
+/* Input area */
+.input-section{padding:20px;background:#fff;margin-top:8px}
+.input-section h3{font-size:14px;color:#6b7280;margin-bottom:10px}
+.answer-input{width:100%;padding:14px 16px;font-size:16px;border:2px solid #e5e7eb;border-radius:12px;resize:none;min-height:80px;font-family:inherit}
+.answer-input:focus{outline:none;border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.15)}
+.send-btn{width:100%;padding:14px;font-size:16px;font-weight:700;border:none;border-radius:12px;cursor:pointer;margin-top:12px;color:#fff;background:linear-gradient(135deg,#6366f1,#8b5cf6);box-shadow:0 4px 12px rgba(99,102,241,.3);transition:.2s}
+.send-btn:active{transform:scale(.98)}
+.send-btn:disabled{opacity:.4;cursor:default}
+
+/* Toast notification */
+.toast{position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:100;padding:12px 24px;border-radius:12px;font-size:14px;font-weight:600;box-shadow:0 8px 25px rgba(0,0,0,.15);animation:toastIn .4s ease-out;max-width:90%}
+.toast.like{background:linear-gradient(135deg,#fef3c7,#fde68a);color:#92400e;border:2px solid #fbbf24}
+.toast.comment{background:linear-gradient(135deg,#dbeafe,#bfdbfe);color:#1e40af;border:2px solid #60a5fa}
+.toast.sent{background:linear-gradient(135deg,#dcfce7,#bbf7d0);color:#166534;border:2px solid #4ade80}
+@keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(-20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+
+/* My records */
+.records-section{padding:20px;margin-top:8px;background:#fff}
+.records-section h3{font-size:14px;font-weight:600;color:#374151;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
+.record-card{padding:12px;margin-bottom:10px;background:#f9fafb;border-radius:10px;border-left:4px solid #6366f1}
+.record-time{font-size:11px;color:#9ca3af}
+.record-text{font-size:15px;font-weight:500;color:#1f2937;margin:4px 0}
+.record-feedback{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap}
+.record-like{background:#fef3c7;color:#92400e;padding:2px 10px;border-radius:10px;font-size:12px;font-weight:600}
+.record-comment{background:#dbeafe;color:#1e40af;padding:2px 10px;border-radius:10px;font-size:12px;font-weight:600}
+.score-bar{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;padding:12px 20px;text-align:center;font-weight:700;font-size:15px;border-radius:12px;margin-bottom:12px}
+
+.empty-state{text-align:center;color:#9ca3af;padding:30px 0;font-size:14px}
+</style>
+</head>
+<body>
+
+<div class="header">
+<h1>📡 ClassPro · 课堂互动</h1>
+<div class="sub"><span class="status-dot" id="statusDot"></span><span id="statusText">连接中...</span></div>
+</div>
+
+<!-- Name Selection -->
+<div class="name-section" id="nameSection">
+<div id="nameSelectArea">
+<label>👤 选择你的名字 / Select your name</label>
+<select class="name-select" id="nameSelect" onchange="onNameChange()">
+<option value="">请选择 / Please select...</option>
+<option value="Jin jilin">Jin jilin 金继林</option>
+<option value="Andrew">Andrew</option>
+<option value="Rui xiang">Rui xiang 瑞翔</option>
+<option value="Jin rui">Jin rui 金瑞</option>
+<option value="Mo tong">Mo tong 墨桐</option>
+<option value="Qiaodan">Qiaodan 巧丹</option>
+<option value="Jialin">Jialin 嘉林</option>
+<option value="Yue xin">Yue xin 悦心</option>
+<option value="Xin yu">Xin yu 心语</option>
+<option value="Luni make">Luni make 鲁尼马克</option>
+<option value="Vincent">Vincent</option>
+<option value="Musa">Musa 穆萨</option>
+<option value="Eifa">Eifa</option>
+<option value="Wan er">Wan er 婉儿 (Beatrice)</option>
+<option value="Hongyu">Hongyu 宏宇</option>
+<option value="Luzian">Luzian 鲁子安</option>
+<option value="Issa">Issa</option>
+<option value="Yazan">Yazan</option>
+</select>
+</div>
+<div id="nameConfirmedArea" style="display:none">
+<div class="name-confirmed">
+<span class="name">👤 <span id="confirmedName"></span></span>
+<button onclick="changeName()">切换 Change</button>
+</div>
+</div>
+</div>
+
+<!-- Answer Input -->
+<div class="input-section">
+<h3>✍️ 输入你的答案 / Type your answer</h3>
+<textarea class="answer-input" id="answerInput" placeholder="在这里输入... Type here..."></textarea>
+<button class="send-btn" id="sendBtn" onclick="sendAnswer()" disabled>发送 Send ✈️</button>
+</div>
+
+<!-- My Records -->
+<div class="records-section">
+<h3>
+<span>📝 我的记录 My Records</span>
+<span id="myScore" style="color:#6366f1">0 分</span>
+</h3>
+<div id="scoreBar" class="score-bar" style="display:none">🎯 本课得分: <span id="totalScore">0</span> 分</div>
+<div id="recordsList">
+<div class="empty-state">还没有提交记录<br>No records yet</div>
+</div>
+</div>
+
+<!-- Toast Container -->
+<div id="toastContainer"></div>
+
+<script>
+// ===== CONFIG =====
+const MQTT_URL = 'wss://05d1d5baec9d4cb3a21f5517b430cff1.s1.eu.hivemq.cloud:8884/mqtt';
+const MQTT_USER = 'classpro';
+const MQTT_PASS = 'Classpro2026';
+const ROOM = '8888';
+const CHANNEL_ANSWERS = `classpro/room/${ROOM}/answers`;
+const CHANNEL_FEEDBACK = `classpro/room/${ROOM}/feedback`;
+
+// ===== STATE =====
+let myName = localStorage.getItem('classpro_name') || '';
+let client = null;
+let myRecords = []; // {text, time, likes, comment}
+let myScore = 0;
+
+// ===== INIT =====
+window.onload = () => {
+    // Restore saved name
+    if (myName) {
+        document.getElementById('nameSelect').value = myName;
+        onNameChange();
+    }
+    connectMQTT();
+};
+
+// ===== NAME =====
+function onNameChange() {
+    const select = document.getElementById('nameSelect');
+    myName = select.value;
+    if (myName) {
+        localStorage.setItem('classpro_name', myName);
+        document.getElementById('sendBtn').disabled = false;
+        document.getElementById('nameConfirmedArea').style.display = 'block';
+        document.getElementById('confirmedName').textContent = myName;
+    } else {
+        document.getElementById('sendBtn').disabled = true;
+        document.getElementById('nameConfirmedArea').style.display = 'none';
+    }
+}
+
+function changeName() {
+    document.getElementById('nameSelect').value = '';
+    document.getElementById('nameConfirmedArea').style.display = 'none';
+    document.getElementById('sendBtn').disabled = true;
+    myName = '';
+    localStorage.removeItem('classpro_name');
+}
+
+// ===== MQTT =====
+function connectMQTT() {
+    const opts = {
+        username: MQTT_USER,
+        password: MQTT_PASS,
+        clientId: 'student_' + Math.random().toString(16).substr(2, 8)
+    };
+
+    client = mqtt.connect(MQTT_URL, opts);
+
+    client.on('connect', () => {
+        updateStatus(true);
+        // Subscribe to feedback channel (teacher → student)
+        client.subscribe(CHANNEL_FEEDBACK);
+    });
+
+    client.on('error', () => updateStatus(false));
+    client.on('close', () => updateStatus(false));
+    client.on('reconnect', () => {
+        document.getElementById('statusText').textContent = '重连中...';
+    });
+
+    // Listen for teacher feedback
+    client.on('message', (topic, message) => {
+        if (topic === CHANNEL_FEEDBACK) {
+            try {
+                const data = JSON.parse(message.toString());
+                handleFeedback(data);
+            } catch (e) {}
+        }
+    });
+}
+
+function updateStatus(connected) {
+    const dot = document.getElementById('statusDot');
+    const text = document.getElementById('statusText');
+    if (connected) {
+        dot.className = 'status-dot on';
+        text.textContent = '已连接 Connected · Room ' + ROOM;
+    } else {
+        dot.className = 'status-dot off';
+        text.textContent = '未连接 Disconnected';
+    }
+}
+
+// ===== SEND ANSWER =====
+function sendAnswer() {
+    const input = document.getElementById('answerInput');
+    const text = input.value.trim();
+    // Auto-detect name from dropdown if not set
+    if (!myName) {
+        myName = document.getElementById('nameSelect').value;
+        if (!myName) { alert('请先选择你的名字 / Please select your name first'); return; }
+    }
+    if (!text) return;
+    if (!client) { alert('未连接服务器 / Not connected'); return; }
+
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('zh-CN', {hour12: false});
+
+    const payload = {
+        name: myName,
+        text: text,
+        time: timeStr
+    };
+
+    client.publish(CHANNEL_ANSWERS, JSON.stringify(payload));
+    input.value = '';
+
+    // Add to my records
+    const record = { text, time: timeStr, likes: 0, comment: '' };
+    myRecords.unshift(record);
+    renderRecords();
+
+    showToast('✅ 已发送！Sent!', 'sent');
+}
+
+// Allow Enter key to send (Shift+Enter for newline)
+document.getElementById('answerInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendAnswer();
+    }
+});
+
+// ===== HANDLE TEACHER FEEDBACK =====
+function handleFeedback(data) {
+    // Only show feedback for ME
+    const target = (data.targetName || '').toLowerCase().trim();
+    const me = myName.toLowerCase().trim();
+    
+    // Fuzzy match: exact match or contains
+    if (target !== me && !target.includes(me.split(' ')[0].toLowerCase()) && !me.includes(target.split(' ')[0])) {
+        return; // Not for me
+    }
+
+    if (data.type === 'like') {
+        myScore++;
+        updateScoreDisplay();
+        showToast('🎉 老师给你点赞了！Teacher liked your answer! (+1分)', 'like');
+        
+        // Update matching record
+        for (let r of myRecords) {
+            if (data.text && r.text === data.text) {
+                r.likes++;
+                break;
+            } else if (!data.text) {
+                // Like the most recent one
+                r.likes++;
+                break;
+            }
+        }
+        renderRecords();
+    }
+
+    if (data.type === 'comment') {
+        showToast('💬 老师评论: ' + (data.content || ''), 'comment');
+        
+        // Update matching record
+        for (let r of myRecords) {
+            if (data.text && r.text === data.text) {
+                r.comment = data.content || '';
+                break;
+            } else if (!data.text) {
+                r.comment = data.content || '';
+                break;
+            }
+        }
+        renderRecords();
+    }
+}
+
+// ===== RENDER =====
+function renderRecords() {
+    const list = document.getElementById('recordsList');
+    
+    if (myRecords.length === 0) {
+        list.innerHTML = '<div class="empty-state">还没有提交记录<br>No records yet</div>';
+        return;
+    }
+
+    let html = '';
+    for (const r of myRecords) {
+        html += `<div class="record-card">
+            <div class="record-time">${r.time}</div>
+            <div class="record-text">${escapeHtml(r.text)}</div>
+            <div class="record-feedback">
+                ${r.likes > 0 ? `<span class="record-like">👍 ×${r.likes}</span>` : ''}
+                ${r.comment ? `<span class="record-comment">💬 ${escapeHtml(r.comment)}</span>` : ''}
+            </div>
+        </div>`;
+    }
+    list.innerHTML = html;
+}
+
+function updateScoreDisplay() {
+    document.getElementById('myScore').textContent = myScore + ' 分';
+    const bar = document.getElementById('scoreBar');
+    bar.style.display = 'block';
+    document.getElementById('totalScore').textContent = myScore;
+}
+
+function escapeHtml(text) {
+    const d = document.createElement('div');
+    d.textContent = text;
+    return d.innerHTML;
+}
+
+// ===== TOAST =====
+function showToast(message, type) {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = 'toast ' + type;
+    toast.textContent = message;
+    container.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity .3s';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+</script>
+</body>
+</html>
