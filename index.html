@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ClassPro · 学生端</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.3.0/mqtt.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;background:#f0f4f8;min-height:100vh;color:#333}
+.hdr{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;padding:14px 20px;text-align:center;position:sticky;top:0;z-index:10}
+.hdr h1{font-size:17px;font-weight:700;margin:0}.hdr .sub{font-size:11px;opacity:.8;margin-top:3px}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:middle}.dot.on{background:#4ade80}.dot.off{background:#f87171}
+.tabs{display:flex;background:#fff;border-bottom:2px solid #e5e7eb;position:sticky;top:52px;z-index:9}
+.tab{flex:1;padding:10px 4px;font-size:12px;font-weight:600;border:none;background:none;cursor:pointer;color:#888;border-bottom:3px solid transparent}
+.tab.on{color:#6366f1;border-bottom-color:#6366f1;background:#faf5ff}
+.sec{padding:16px 20px;background:#fff;margin-top:6px}
+.card{background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+.sel{width:100%;padding:11px 16px;font-size:15px;border:2px solid #e5e7eb;border-radius:12px;background:#f9fafb;appearance:none}
+.sel:focus{outline:none;border-color:#6366f1}
+.inp{width:100%;padding:12px;font-size:15px;border:2px solid #e5e7eb;border-radius:12px;resize:none;min-height:70px;font-family:inherit}
+.inp:focus{outline:none;border-color:#6366f1}
+.btn{width:100%;padding:13px;font-size:15px;font-weight:700;border:none;border-radius:12px;cursor:pointer;margin-top:10px;color:#fff;background:linear-gradient(135deg,#6366f1,#8b5cf6)}
+.btn:active{transform:scale(.98)}.btn:disabled{opacity:.4}
+.toast{position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:100;padding:10px 20px;border-radius:12px;font-size:13px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.15);animation:tin .3s;max-width:90%}
+.toast.like{background:#fef3c7;color:#92400e;border:2px solid #fbbf24}
+.toast.sent{background:#dcfce7;color:#166534;border:2px solid #4ade80}
+.toast.rpt{background:#f3e8ff;color:#6b21a8;border:2px solid #a78bfa}
+@keyframes tin{from{opacity:0;transform:translateX(-50%) translateY(-15px)}to{opacity:1;transform:translateX(-50%)}}
+.rec{padding:10px;margin-bottom:8px;background:#f9fafb;border-radius:10px;border-left:4px solid #6366f1}
+.empty{text-align:center;color:#9ca3af;padding:25px 0;font-size:13px}
+.err-card{padding:12px;margin:8px 0;border-radius:10px;background:#fef2f2;border-left:4px solid #ef4444}
+.ex-card{padding:12px;margin:8px 0;border-radius:10px;background:#eff6ff;border-left:4px solid #3b82f6}
+.ex-ans{display:none;color:#10b981;font-weight:600;margin-top:6px}.ex-ans.show{display:block}
+.abtn{background:#e0e7ff;color:#4338ca;border:none;padding:4px 12px;border-radius:8px;font-size:12px;cursor:pointer;margin-top:6px;font-weight:600}
+/* Review tab */
+.wcard{background:#fff;border:2px solid #e5e7eb;border-radius:12px;padding:14px;margin:8px 0;cursor:pointer;transition:.2s}
+.wcard:active{border-color:#6366f1;background:#faf5ff}
+.wcard .w{font-size:24px;font-weight:700}.wcard .py{font-size:13px;color:#888}.wcard .en{font-size:12px;color:#666}
+.wdetail{background:#f9fafb;border-radius:10px;padding:12px;margin-top:8px}
+.wex{padding:6px 0;border-bottom:1px solid #f0f0f0;font-size:14px}
+.wex .cn{font-weight:500}.wex .enn{font-size:12px;color:#888;font-style:italic}
+.gstep{padding:10px;margin:6px 0;border-radius:8px;border-left:3px solid #e5e7eb}
+.gstep.reveal{border-color:#f59e0b;background:#fffbeb}
+.gstep.example{border-color:#3b82f6;background:#eff6ff}
+.gstep.formula{border-color:#10b981;background:#f0fdf4}
+.tf-btn{padding:10px 20px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;border:2px solid #e5e7eb;background:#fff;margin:4px}
+.tf-btn:disabled{opacity:.5}
+.stat-row{display:flex;gap:10px;margin-top:10px}
+.stat-box{flex:1;text-align:center;padding:8px;background:#f9fafb;border-radius:8px}
+.stat-num{font-size:18px;font-weight:700}.stat-lbl{font-size:10px;color:#888;margin-top:2px}
+</style>
+</head>
+<body>
+<div class="hdr"><h1>📡 ClassPro · 学生端</h1><div class="sub"><span class="dot" id="dot"></span><span id="stxt">连接中...</span></div></div>
+<div class="tabs">
+<button class="tab on" onclick="stab('a')" id="ta">📡 课堂互动</button>
+<button class="tab" onclick="stab('b')" id="tb">📋 课后报告</button>
+<button class="tab" onclick="stab('c')" id="tc">📖 复习课件</button>
+</div>
+
+<!-- TAB A: Interact -->
+<div id="pa">
+<div class="sec" style="border-bottom:1px solid #e5e7eb">
+<div id="ns"><label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px">👤 选择名字</label>
+<select class="sel" id="nm" onchange="onN()"><option value="">请选择...</option>
+<option value="Jin jilin">Jin jilin 金继林</option><option value="Andrew">Andrew</option><option value="Rui xiang">Rui xiang 瑞翔</option><option value="Jin rui">Jin rui 金瑞</option><option value="Mo tong">Mo tong 墨桐</option><option value="Qiaodan">Qiaodan 巧丹</option><option value="Jialin">Jialin 嘉林</option><option value="Yue xin">Yue xin 悦心</option><option value="Xin yu">Xin yu 心语</option><option value="Luni make">Luni make 鲁尼马克</option><option value="Vincent">Vincent</option><option value="Musa">Musa 穆萨</option><option value="Eifa">Eifa</option><option value="Wan er">Wan er 婉儿</option><option value="Hongyu">Hongyu 宏宇</option><option value="Luzian">Luzian 鲁子安</option><option value="Issa">Issa</option><option value="Yazan">Yazan</option></select></div>
+<div id="nk" style="display:none;margin-top:8px;padding:8px 12px;background:#f0fdf4;border:2px solid #86efac;border-radius:10px;display:none"><span style="font-weight:700;color:#166534">👤 <span id="nd"></span></span> <button onclick="chN()" style="background:none;border:none;color:#888;font-size:11px;cursor:pointer;text-decoration:underline;margin-left:10px">切换</button></div>
+</div>
+<div class="sec"><h3 style="font-size:13px;color:#888;margin-bottom:8px">✍️ 输入答案</h3><textarea class="inp" id="ip" placeholder="输入答案..."></textarea><button class="btn" id="sb" onclick="send()" disabled>发送 ✈️</button></div>
+<div class="sec"><h3 style="font-size:13px;font-weight:600;display:flex;justify-content:space-between"><span>📝 记录</span><span id="sl" style="color:#6366f1">0分</span></h3><div id="rl"><div class="empty">还没有提交</div></div></div>
+</div>
+
+<!-- TAB B: Report -->
+<div id="pb" style="display:none"><div style="padding:16px 20px">
+<div id="nr" class="card" style="text-align:center;padding:35px"><div style="font-size:36px;margin-bottom:8px">📭</div><div style="font-weight:600">还没有课后报告</div><div style="font-size:12px;color:#888;margin-top:4px">老师下课时会发送</div></div>
+<div id="rb" style="display:none">
+<div class="card"><div style="font-size:12px;color:#888" id="rL"></div><div style="display:flex;align-items:center;gap:15px;margin-top:6px"><div style="font-size:32px;font-weight:900;color:#6366f1" id="rS">0</div><div style="font-size:13px;color:#888">分<br><span id="rD"></span></div></div>
+<div class="stat-row"><div class="stat-box"><div class="stat-num" id="sC" style="color:#10b981">0</div><div class="stat-lbl">正确</div></div><div class="stat-box"><div class="stat-num" id="sW" style="color:#ef4444">0</div><div class="stat-lbl">错误</div></div><div class="stat-box"><div class="stat-num" id="sP" style="color:#6366f1">0%</div><div class="stat-lbl">正确率</div></div></div></div>
+<div class="card" id="eS" style="display:none"><h3 style="font-size:14px;margin-bottom:8px">❌ 我的错题 (<span id="eN">0</span>)</h3><div id="eL"></div></div>
+<div class="card" id="xS" style="display:none"><h3 style="font-size:14px;margin-bottom:8px">🎯 针对性练习 (<span id="xN">0</span>)</h3><div style="font-size:11px;color:#888;margin-bottom:8px">AI老师根据错题生成</div><div id="xL"></div></div>
+</div></div></div>
+
+<!-- TAB C: Review Courseware -->
+<div id="pc" style="display:none"><div style="padding:16px 20px">
+<div id="ncw" class="card" style="text-align:center;padding:35px"><div style="font-size:36px;margin-bottom:8px">📖</div><div style="font-weight:600">还没有收到课件数据</div><div style="font-size:12px;color:#888;margin-top:4px">老师发送课后报告时会一起发送</div></div>
+<div id="cw" style="display:none">
+<div style="font-size:16px;font-weight:700;color:#374151;margin-bottom:12px" id="cwTitle"></div>
+
+<!-- Sub-tabs for courseware -->
+<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
+<button class="abtn" onclick="cwTab('vocab')" id="cwt1" style="background:#6366f1;color:#fff">📖 词汇</button>
+<button class="abtn" onclick="cwTab('grammar')" id="cwt2">📐 语法</button>
+<button class="abtn" onclick="cwTab('text')" id="cwt3">📝 课文</button>
+<button class="abtn" onclick="cwTab('quiz')" id="cwt4">✍️ 自测</button>
+</div>
+
+<div id="cwVocab"></div>
+<div id="cwGrammar" style="display:none"></div>
+<div id="cwText" style="display:none"></div>
+<div id="cwQuiz" style="display:none"></div>
+</div>
+</div></div>
+
+<div id="tc2"></div>
+<script>
+const MQ='wss://05d1d5baec9d4cb3a21f5517b430cff1.s1.eu.hivemq.cloud:8884/mqtt',MU='classpro',MP='Classpro2026',RM='8888';
+// Google Sheet webhook (老师部署GAS后填入URL)
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbytc_qrB04K2ARfSK5rRD1Nz-xV5UMjxZRCVRS5hJan0R6ezSkEtTENhYXge-eZ8er_oA/exec';
+
+const CA=`classpro/room/${RM}/answers`,CF=`classpro/room/${RM}/feedback`,CR=`classpro/room/${RM}/report`;
+let N=localStorage.getItem('classpro_name')||'',cl=null,rec=[],sc=0,rptData=null;
+
+window.onload=()=>{if(N){document.getElementById('nm').value=N;onN()}
+const s=localStorage.getItem('cp_report');if(s){try{rptData=JSON.parse(s);showRpt(rptData);if(rptData.courseware)showCW(rptData.courseware,rptData.lesson)}catch(e){}}
+connectMQ()};
+
+function stab(t){['a','b','c'].forEach(x=>{document.getElementById('p'+x).style.display=x===t?'block':'none';document.getElementById('t'+x).className='tab'+(x===t?' on':'')})};
+function onN(){const s=document.getElementById('nm');N=s.value;if(N){localStorage.setItem('classpro_name',N);document.getElementById('sb').disabled=false;document.getElementById('nk').style.display='block';document.getElementById('nd').textContent=N}else{document.getElementById('sb').disabled=true;document.getElementById('nk').style.display='none'}}
+function chN(){document.getElementById('nm').value='';document.getElementById('nk').style.display='none';document.getElementById('sb').disabled=true;N='';localStorage.removeItem('classpro_name')}
+
+function connectMQ(){cl=mqtt.connect(MQ,{username:MU,password:MP,clientId:'s_'+Math.random().toString(16).substr(2,8)});
+cl.on('connect',()=>{upSt(true);cl.subscribe(CF);cl.subscribe(CR)});cl.on('error',()=>upSt(false));cl.on('close',()=>upSt(false));
+cl.on('message',(t,m)=>{try{const d=JSON.parse(m.toString());if(t===CF)onFB(d);if(t===CR)onRpt(d)}catch(e){}})}
+function upSt(on){document.getElementById('dot').className='dot '+(on?'on':'off');document.getElementById('stxt').textContent=on?'已连接 · Room '+RM:'未连接'}
+
+function send(){const i=document.getElementById('ip'),tx=i.value.trim();if(!N){N=document.getElementById('nm').value;if(!N){alert('请先选择名字');return}}if(!tx||!cl)return;
+const tm=new Date().toLocaleTimeString('zh-CN',{hour12:false});cl.publish(CA,JSON.stringify({name:N,text:tx,time:tm}));i.value='';rec.unshift({text:tx,time:tm,likes:0,comment:''});drawRec();toast('✅ 已发送','sent')}
+document.addEventListener('DOMContentLoaded',()=>{document.getElementById('ip').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}})});
+
+function onFB(d){const tgt=(d.targetName||'').toLowerCase().trim(),me=N.toLowerCase().trim();if(!me||tgt!==me&&!tgt.includes(me.split(' ')[0].toLowerCase())&&!me.includes(tgt.split(' ')[0]))return;
+if(d.type==='like'){sc++;updSc();toast('🎉 '+(d.auto?'答对了':'老师点赞')+' +1分','like');for(let r of rec){if(d.text&&r.text===d.text){r.likes++;break}else if(!d.text){r.likes++;break}}drawRec()}
+if(d.type==='comment'){toast('💬 '+d.content,'like');for(let r of rec){if(d.text&&r.text===d.text){r.comment=d.content||'';break}else if(!d.text){r.comment=d.content||'';break}}drawRec()}}
+
+function onRpt(d){rptData=d;localStorage.setItem('cp_report',JSON.stringify(d));showRpt(d);if(d.courseware)showCW(d.courseware,d.lesson);toast('📋 收到课后报告！','rpt')}
+
+// ===== Report Tab =====
+function showRpt(d){if(!N||!d)return;const me=N.toLowerCase().trim();
+let ms=null;for(const[n,s]of Object.entries(d.studentStats||{})){if(n.toLowerCase().trim()===me||n.toLowerCase().includes(me.split(' ')[0].toLowerCase())){ms=s;break}}
+let rank='-',total=0;(d.scores||[]).forEach((s,i)=>{const sn=s.name.toLowerCase();if(sn===me||sn.includes(me.split(' ')[0].toLowerCase())){rank=i+1;total=s.total}});
+document.getElementById('nr').style.display='none';document.getElementById('rb').style.display='block';
+document.getElementById('rL').textContent=d.lesson||'';document.getElementById('rS').textContent=total;
+// rank hidden for privacydocument.getElementById('rD').textContent=d.date||'';
+if(ms){document.getElementById('sC').textContent=ms.correct;document.getElementById('sW').textContent=ms.wrong;
+const rate=ms.total>0?Math.round(ms.correct/ms.total*100):0;document.getElementById('sP').textContent=rate+'%';
+if(ms.errors&&ms.errors.length>0){document.getElementById('eS').style.display='block';document.getElementById('eN').textContent=ms.errors.length;
+let h='';ms.errors.forEach(e=>{h+='<div class="err-card"><div style="font-size:13px">我的: <span style="color:#991b1b;text-decoration:line-through">'+esc(e.text)+'</span></div><div style="color:#10b981;font-weight:600;font-size:13px;margin-top:4px">✅ '+esc(e.answer)+'</div></div>'});
+document.getElementById('eL').innerHTML=h}}
+const ex=d.aiExercises||[];if(ex.length>0){document.getElementById('xS').style.display='block';document.getElementById('xN').textContent=ex.length;
+let h='';ex.forEach(e=>{h+='<div class="ex-card"><div style="font-size:11px;color:#3b82f6;font-weight:600">'+esc(e.type||'')+'</div><div style="font-size:14px;font-weight:500;margin-top:2px">'+esc(e.question)+'</div>'+(e.hint?'<div style="font-size:11px;color:#888;margin-top:2px">💡 '+esc(e.hint)+'</div>':'')+'<button class="abtn" onclick="this.nextElementSibling.classList.toggle(\'show\')">查看答案</button><div class="ex-ans">✅ '+esc(e.answer)+'</div></div>'});
+h+='<button onclick="submitAIExResults()" style="width:100%;padding:12px;margin-top:14px;border-radius:10px;border:none;background:#6366f1;color:#fff;font-weight:700;cursor:pointer;font-size:14px">📤 提交练习结果给老师</button>';
+document.getElementById('xL').innerHTML=h}}
+
+// ===== Courseware Tab =====
+let cwData=null;
+function showCW(cw,lesson){
+    cwData=cw;
+    document.getElementById('ncw').style.display='none';document.getElementById('cw').style.display='block';
+    document.getElementById('cwTitle').textContent='📖 '+(lesson||'复习课件');
+    renderVocab();renderGrammar();renderText();renderQuiz();
+}
+function cwTab(t){['Vocab','Grammar','Text','Quiz'].forEach((x,i)=>{document.getElementById('cw'+x).style.display=x.toLowerCase()===t?'block':'none';document.getElementById('cwt'+(i+1)).style.background=x.toLowerCase()===t?'#6366f1':'#e0e7ff';document.getElementById('cwt'+(i+1)).style.color=x.toLowerCase()===t?'#fff':'#4338ca'})}
+
+function renderVocab(){
+    if(!cwData||!cwData.teach_vocab)return;
+    let h='';
+    cwData.teach_vocab.forEach(part=>{part.forEach(w=>{
+        h+='<div class="wcard" onclick="this.querySelector(\'.wdetail\').style.display=this.querySelector(\'.wdetail\').style.display===\'none\'?\'block\':\'none\'">';
+        h+='<div class="w">'+esc(w.word)+'</div><div class="py">'+esc(w.pinyin)+'</div><div class="en">'+esc(w.english)+'</div>';
+        h+='<div class="wdetail" style="display:none">';
+        if(w.collocations)h+='<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">'+w.collocations.map(c=>'<span style="background:#e0e7ff;color:#4338ca;padding:2px 8px;border-radius:8px;font-size:11px">'+esc(c)+'</span>').join('')+'</div>';
+        if(w.examples)w.examples.forEach(ex=>{h+='<div class="wex"><div class="cn">'+esc(ex.cn)+' <span onclick="event.stopPropagation();speak(\''+esc(ex.cn).replace(/'/g,"\\'")+'\');return false" style="cursor:pointer">🔊</span></div><div class="enn">'+esc(ex.en)+'</div></div>'});
+        h+='</div></div>';
+    })});
+    document.getElementById('cwVocab').innerHTML=h;
+}
+function renderGrammar(){
+    if(!cwData||!cwData.teach_grammar)return;
+    let h='';
+    cwData.teach_grammar.forEach(g=>{
+        h+='<div class="card"><h3 style="font-size:14px;margin-bottom:10px;color:#374151">'+esc(g.title)+'</h3>';
+        g.steps.forEach(s=>{
+            if(s.type==='reveal')h+='<div class="gstep reveal"><div style="font-style:italic;color:#555">'+esc(s.prompt)+'</div><div style="font-weight:600;color:#1565c0;margin-top:4px">→ '+esc(s.answer)+'</div>'+(s.note?'<div style="font-size:11px;color:#888;margin-top:2px">'+esc(s.note)+'</div>':'')+'</div>';
+            if(s.type==='example')h+='<div class="gstep example"><div style="font-weight:500">'+esc(s.cn)+' <span onclick="speak(\''+esc(s.cn).replace(/'/g,"\\'")+'\');return false" style="cursor:pointer">🔊</span></div><div style="font-size:12px;color:#888;font-style:italic">'+esc(s.en)+'</div></div>';
+            if(s.type==='formula')h+='<div class="gstep formula"><div style="font-weight:700;font-size:15px;color:#166534">'+esc(s.formula)+'</div>'+(s.note?'<div style="font-size:11px;color:#888;margin-top:3px">'+esc(s.note)+'</div>':'')+'</div>';
+        });
+        h+='</div>';
+    });
+    document.getElementById('cwGrammar').innerHTML=h;
+}
+function renderText(){
+    if(!cwData||!cwData.teach_text)return;
+    let h='';
+    cwData.teach_text.forEach((t,ti)=>{
+        h+='<div class="card"><h3 style="font-size:14px;margin-bottom:10px">'+esc(t.title)+'</h3>';
+        if(t.lines)t.lines.forEach(l=>{
+            h+='<div style="padding:6px 0;border-bottom:1px solid #f0f0f0">'+(l.speaker?'<span style="font-size:11px;color:#6366f1;font-weight:600">'+esc(l.speaker)+'</span> ':'')+'<div style="font-size:15px;font-weight:500;line-height:1.6">'+l.cn+'</div><div style="font-size:12px;color:#888;font-style:italic">'+esc(l.en)+'</div></div>';
+        });
+        // TF self-test
+        if(t.tf&&t.tf.length>0){
+            h+='<div style="margin-top:12px;padding-top:10px;border-top:2px dashed #e5e7eb"><div style="font-size:13px;font-weight:600;margin-bottom:8px">🎯 自测判断 True or False</div>';
+            t.tf.forEach((q,qi)=>{
+                const id='tf_'+ti+'_'+qi;
+                h+='<div style="padding:8px 0;border-bottom:1px solid #f8f8f8" id="'+id+'_w"><div style="font-size:14px;margin-bottom:6px">'+esc(q.q)+'</div><button class="tf-btn" onclick="chkTF('+ti+','+qi+',true)">✓ 对</button><button class="tf-btn" onclick="chkTF('+ti+','+qi+',false)">✗ 错</button><span id="'+id+'" style="font-weight:600;margin-left:8px"></span></div>';
+            });
+            h+='</div>';
+        }
+        h+='</div>';
+    });
+    document.getElementById('cwText').innerHTML=h;
+}
+function renderQuiz(){
+    if(!cwData)return;
+    const items=cwData.sentence_completion||cwData.vocab_complete||[];
+    if(!items.length){document.getElementById('cwQuiz').innerHTML='<div class="empty">暂无自测题</div>';return}
+    let h='<div style="font-size:13px;color:#888;margin-bottom:10px">共'+items.length+'题，点击选项作答</div>';
+    items.forEach((q,i)=>{
+        const id='qz_'+i;
+        h+='<div class="card" id="'+id+'_w"><div style="font-size:15px;font-weight:500;margin-bottom:4px">'+esc(q.sentence||q.question||'')+'</div>';
+        if(q.en_hint)h+='<div style="font-size:12px;color:#888;font-style:italic;margin-bottom:8px">'+esc(q.en_hint)+'</div>';
+        h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">';
+        (q.options||[]).forEach(opt=>{h+='<button style="padding:10px;font-size:15px;font-weight:600;border-radius:10px;border:2px solid #e5e7eb;background:#fff;cursor:pointer" onclick="chkQ('+i+',this,\''+esc(opt)+'\',\''+esc(q.answer)+'\')">'+esc(opt)+'</button>'});
+        h+='</div><div id="'+id+'" style="font-weight:600;margin-top:6px;font-size:13px"></div></div>';
+    });
+    h+='<button onclick="submitToSheet(\'自测练习\',quizResults.total,quizResults.correct,quizResults.errors)" style="width:100%;padding:12px;margin-top:14px;border-radius:10px;border:none;background:#6366f1;color:#fff;font-weight:700;cursor:pointer;font-size:14px">📤 提交练习结果给老师</button>';
+    document.getElementById('cwQuiz').innerHTML=h;
+}
+
+// TF check
+function chkTF(ti,qi,ans){
+    const tf=cwData.teach_text[ti].tf[qi];const el=document.getElementById('tf_'+ti+'_'+qi);
+    tfResults.total++;
+    if(ans===tf.answer){el.textContent='✅ 正确！';el.style.color='#10b981';tfResults.correct++}
+    else{el.textContent='❌ 答案是'+(tf.answer?'对 True':'错 False');el.style.color='#ef4444';tfResults.errors.push({question:tf.q,picked:ans?'对':'错',answer:tf.answer?'对':'错'})}
+    document.getElementById('tf_'+ti+'_'+qi+'_w').querySelectorAll('.tf-btn').forEach(b=>b.disabled=true);
+}
+// Quiz check
+function chkQ(i,btn,pick,ans){
+    const el=document.getElementById('qz_'+i);const wrap=document.getElementById('qz_'+i+'_w');
+    quizResults.total++;
+    if(pick===ans){el.textContent='✅ 正确！';el.style.color='#10b981';btn.style.background='#dcfce7';btn.style.borderColor='#10b981';quizResults.correct++}
+    else{el.textContent='❌ 答案: '+ans;el.style.color='#ef4444';btn.style.background='#fee2e2';btn.style.borderColor='#ef4444';quizResults.errors.push({question:'Q'+(i+1),picked:pick,answer:ans})}
+    wrap.querySelectorAll('button').forEach(b=>{b.disabled=true;if(b.textContent===ans){b.style.background='#dcfce7';b.style.borderColor='#10b981'}});
+}
+
+function drawRec(){const l=document.getElementById('rl');if(!rec.length){l.innerHTML='<div class="empty">还没有提交</div>';return}
+let h='';rec.forEach(r=>{h+='<div class="rec"><div style="font-size:11px;color:#9ca3af">'+r.time+'</div><div style="font-size:13px;font-weight:500;margin:2px 0">'+esc(r.text)+'</div>'+(r.likes>0?'<span style="font-size:11px;background:#fef3c7;color:#92400e;padding:1px 6px;border-radius:6px">👍×'+r.likes+'</span>':'')+(r.comment?'<span style="font-size:11px;background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:6px;margin-left:4px">💬'+esc(r.comment)+'</span>':'')+'</div>'});l.innerHTML=h}
+function updSc(){document.getElementById('sl').textContent=sc+'分'}
+function esc(t){if(!t)return'';const d=document.createElement('div');d.textContent=t;return d.innerHTML}
+function speak(t){const u=new SpeechSynthesisUtterance(t);u.lang='zh-CN';u.rate=0.8;speechSynthesis.cancel();speechSynthesis.speak(u)}
+// ===== 提交练习结果到 Google Sheet =====
+function submitToSheet(exerciseType, total, correct, errors) {
+    if(!GAS_URL) {
+        GAS_URL = prompt('请输入老师提供的数据收集URL:');
+        if(!GAS_URL) return;
+        localStorage.setItem('cp_gas_url', GAS_URL);
+    }
+    const payload = {
+        studentName: N,
+        lesson: rptData ? rptData.lesson : '',
+        exerciseType,
+        total,
+        correct,
+        errors,
+        timestamp: new Date().toLocaleString('zh-CN')
+    };
+    fetch(GAS_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    }).then(() => toast('✅ 已提交给老师！','sent')).catch(() => toast('⚠️ 提交失败，请检查网络','like'));
+}
+
+// AI Exercise tracking
+let aiExResults = {total:0, correct:0, errors:[]};
+function submitAIExResults() {
+    // Count how many exercises were viewed (answered)
+    const cards = document.querySelectorAll('#xL .ex-card');
+    aiExResults.total = cards.length;
+    aiExResults.correct = 0; // teacher-reviewed exercises don't have auto-check
+    submitToSheet('AI针对性练习(已查看)', aiExResults.total, aiExResults.total, []);
+}
+
+// Quiz tracking
+let quizResults = {total:0, correct:0, errors:[]};
+let tfResults = {total:0, correct:0, errors:[]};
+
+function toast(m,t){const c=document.getElementById('tc2'),e=document.createElement('div');e.className='toast '+t;e.textContent=m;c.appendChild(e);setTimeout(()=>{e.style.opacity='0';e.style.transition='opacity .3s';setTimeout(()=>e.remove(),300)},3000)}
+</script>
+</body>
+</html>
