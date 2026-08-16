@@ -76,9 +76,9 @@ body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;background:#f0f
 <!-- TAB A: Interact -->
 <div id="pa">
 <div class="sec" style="border-bottom:1px solid #e5e7eb">
-<div id="ns"><label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px">👤 选择名字</label>
+<div id="ns"><label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px">👤 选择匿名编号</label>
 <select class="sel" id="nm" onchange="onN()"><option value="">请选择...</option>
-<option value="Jin jilin">Jin jilin 金继林</option><option value="Andrew">Andrew</option><option value="Rui xiang">Rui xiang 瑞翔</option><option value="Jin rui">Jin rui 金瑞</option><option value="Mo tong">Mo tong 墨桐</option><option value="Qiaodan">Qiaodan 巧丹</option><option value="Jialin">Jialin 嘉林</option><option value="Yue xin">Yue xin 悦心</option><option value="Xin yu">Xin yu 心语</option><option value="Luni make">Luni make 鲁尼马克</option><option value="Vincent">Vincent</option><option value="Musa">Musa 穆萨</option><option value="Eifa">Eifa</option><option value="Wan er">Wan er 婉儿</option><option value="Hongyu">Hongyu 宏宇</option><option value="Luzian">Luzian 鲁子安</option><option value="Issa">Issa</option><option value="Yazan">Yazan</option><option value="Keen">Keen</option></select></div>
+<option value="Student 01">Student 01</option><option value="Student 02">Student 02</option><option value="Student 03">Student 03</option><option value="Student 04">Student 04</option><option value="Student 05">Student 05</option><option value="Student 06">Student 06</option><option value="Student 07">Student 07</option><option value="Student 08">Student 08</option><option value="Student 09">Student 09</option><option value="Student 10">Student 10</option><option value="Student 11">Student 11</option><option value="Student 12">Student 12</option><option value="Student 13">Student 13</option><option value="Student 14">Student 14</option><option value="Student 15">Student 15</option><option value="Student 16">Student 16</option><option value="Student 17">Student 17</option><option value="Student 18">Student 18</option></select></div>
 <div id="nk" style="display:none;margin-top:8px;padding:8px 12px;background:#f0fdf4;border:2px solid #86efac;border-radius:10px;display:none"><span style="font-weight:700;color:#166534">👤 <span id="nd"></span></span> <button onclick="chN()" style="background:none;border:none;color:#888;font-size:11px;cursor:pointer;text-decoration:underline;margin-left:10px">切换</button></div>
 </div>
 <div class="sec"><h3 style="font-size:13px;color:#888;margin-bottom:8px">✍️ 输入答案</h3><textarea class="inp" id="ip" placeholder="输入答案..."></textarea><button class="btn" id="sb" onclick="send()" disabled>发送 ✈️</button></div>
@@ -148,14 +148,14 @@ body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;background:#f0f
 
 <div id="tc2"></div>
 <script>
-const MQ='wss://05d1d5baec9d4cb3a21f5517b430cff1.s1.eu.hivemq.cloud:8884/mqtt',MU='classpro',MP='Classpro2026',RM='8888';
+const MQ='wss://05d1d5baec9d4cb3a21f5517b430cff1.s1.eu.hivemq.cloud:8884/mqtt',MU='Classprohsk3',MP='r4ng2@!B7Q6CTLe',RM='8888';
 // Google Sheet webhook (自动从老师发送的报告中获取)
 let GAS_URL = localStorage.getItem('cp_gas_url') || '';
 
 const CA=`classpro/room/${RM}/answers`,CF=`classpro/room/${RM}/feedback`,CR=`classpro/room/${RM}/report`,CH=`classpro/room/${RM}/homework`;
 let N=localStorage.getItem('classpro_name')||'',cl=null,rec=[],sc=0,rptData=null;
 
-window.onload=()=>{if(N){document.getElementById('nm').value=N;onN()}
+window.onload=()=>{if(N&&!/^Student\s(0[1-9]|1[0-8])$/.test(N)){localStorage.removeItem('classpro_name');N=''}if(N){document.getElementById('nm').value=N;onN()}
 const s=localStorage.getItem('cp_report');if(s){try{rptData=JSON.parse(s);showRpt(rptData);if(rptData.courseware)showCW(rptData.courseware,rptData.lesson)}catch(e){}}
 const hw=localStorage.getItem('cp_homework');if(hw){try{onHomework(JSON.parse(hw),true)}catch(e){}}
 connectMQ()};
@@ -177,7 +177,7 @@ document.addEventListener('visibilitychange',()=>{
 });
 // ★ 每25秒心跳
 setInterval(()=>{if(cl&&cl.connected&&N)cl.publish(`classpro/room/${RM}/presence`,JSON.stringify({name:N,action:'hb',ts:Date.now()}),{qos:1})},25000);
-function send(){const i=document.getElementById('ip'),tx=i.value.trim();if(!N){N=document.getElementById('nm').value;if(!N){alert('请先选择名字');return}}if(!tx||!cl)return;
+function send(){const i=document.getElementById('ip'),tx=i.value.trim();if(!N){N=document.getElementById('nm').value;if(!N){alert('请先选择匿名编号');return}}if(!tx||!cl)return;
 const tm=new Date().toLocaleTimeString('zh-CN',{hour12:false});cl.publish(CA,JSON.stringify({name:N,text:tx,time:tm}),{qos:1});i.value='';rec.unshift({text:tx,time:tm,likes:0,comment:''});drawRec();toast('✅ 已发送','sent')}
 document.addEventListener('DOMContentLoaded',()=>{document.getElementById('ip').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}})});
 
